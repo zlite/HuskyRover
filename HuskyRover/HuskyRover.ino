@@ -23,15 +23,12 @@ Servo myservoa, myservob; // create servo objects to control servos
 #define OUTPUT_MIN -500
 #define OUTPUT_MAX 500
 
-// PID Details
 double Setpoint, Input, Output;
-//double Kp=5, Ki=2, Kd=2;
-//PID HuskyPID(&Input, &Output, &Setpoint, Kp, Ki, Kd, DIRECT);
 
-#define KP 0.6
+#define KP 0.4
 #define KI 0.0
-#define KD 0.1
-#define GAIN 100
+#define KD 1.0
+#define GAIN 50 
 
 //input/output variables passed by reference, so they are updated automatically
 AutoPID HuskyPID(&Input, &Setpoint, &Output, OUTPUT_MIN, OUTPUT_MAX, KP, KI, KD);
@@ -56,9 +53,6 @@ void setup() {
     Serial.begin(BAUD_RATE);   // USB port
     Serial2.begin(115200);
     Setpoint = 0.0;
-      //turn the PID on
-//    HuskyPID.SetMode(AUTOMATIC);    
-//    HuskyPID.SetSampleTime(20); // Do it at 50Hz 
     HuskyPID.setTimeStep(20);  // Do it at 50Hz 
     while (!huskylens.begin(Serial2))
     {
@@ -100,7 +94,7 @@ void Huskycontrol() {
               x_2 = result.xTarget;
               y_2 = result.yTarget;
               if ((x_2-x_1) == 0) slope = 0; else slope = 1/((y_2-y_1)/(x_2-x_1));
-                x_offset = (150 - x_1)/10;  // if the car is on one side or the other of the line, turn that offset into the equivalent of a slope          
+                x_offset = (150 - x_1)/15;  // if the car is on one side or the other of the line, turn that offset into the equivalent of a slope          
                 blended_slope = x_offset + 10*((slope + oldslope1 + oldslope2)/3);  // X offset plus moving average of past three slope reads
                 Input = blended_slope;  // take a moving average of the past three reading
                 oldslope2 = oldslope1;  // push the older readings down the stack
@@ -117,24 +111,15 @@ void Huskycontrol() {
                 Serial.print(", Output: ");
                 Serial.println(Output);
                 steer = Output*GAIN + 1500;
-  //              Serial.print("Setpoint: ");
-  //              Serial.print(Setpoint);
-  //              Serial.print("Steer: ");
-  //              Serial.println(steer);
-                
                 motor=1500;
                 if (RC_throttle) {
-  //                motor = pulseIn(RC2_pin, HIGH);
+                    motor = pulseIn(RC2_pin, HIGH);
                   }
             else{
               SerialUSB.println("Object unknown!");
               }
             steer = constrain(steer,1200,1700);
             motor = constrain(motor,1000,2000);
-//            Serial.print(" Steer: ");
-//            Serial.println(steer);
-//            Serial.print(" Motor: ");
-//            Serial.println(motor);
             myservoa.write(steer); // send values to output
             myservob.write(motor);
             lasttime2 = time2;
@@ -149,8 +134,7 @@ void loop() {
       LEDState = !LEDState; // reverse the LED state
       digitalWrite(LED_BUILTIN, LEDState);   // turn on or off the LED
        }
-//  RC3_value = pulseIn(RC3_pin, HIGH);
-//  if (RC3_value > 1500) {RCcontrol();}   // Use the CH5 switch to decide whether to pass through RC commands or take OpenMV commands
-//    else {Huskycontrol();}
-    Huskycontrol();
+  RC3_value = pulseIn(RC3_pin, HIGH);
+  if (RC3_value > 1500) {RCcontrol();}   // Use the CH5 switch to decide whether to pass through RC commands or take OpenMV commands
+  else {Huskycontrol();}
 }

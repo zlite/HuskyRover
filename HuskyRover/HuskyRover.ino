@@ -1,4 +1,4 @@
-#include <PID_v1.h>
+#include <AutoPID.h>
 #include "HUSKYLENS.h"
 
 
@@ -20,16 +20,26 @@ Servo myservoa, myservob; // create servo objects to control servos
 #define RC3_pin 5
 #define SwitchPin 10
 
+#define OUTPUT_MIN -500
+#define OUTPUT_MAX 500
+
 // PID Details
 double Setpoint, Input, Output;
-double Kp=2, Ki=0, Kd=3;
-PID HuskyPID(&Input, &Output, &Setpoint, Kp, Ki, Kd, DIRECT);
+//double Kp=5, Ki=2, Kd=2;
+//PID HuskyPID(&Input, &Output, &Setpoint, Kp, Ki, Kd, DIRECT);
 
+#define KP 0.6
+#define KI 0.0
+#define KD 0.1
+#define GAIN 100
+
+//input/output variables passed by reference, so they are updated automatically
+AutoPID HuskyPID(&Input, &Setpoint, &Output, OUTPUT_MIN, OUTPUT_MAX, KP, KI, KD);
 
 const int BAUD_RATE = 19200;
-double slope;
+double slope, oldslope1, oldslope2, blended_slope, x_offset;
 int RC;
-float x_1,x_2,y_1,y_2;
+double x_1,x_2,y_1,y_2;
 unsigned long RC1_value;
 unsigned long RC2_value;
 unsigned long RC3_value;
@@ -37,17 +47,19 @@ boolean RC_throttle = true;  // if you want to control the throttle manually whe
 
 int steer, motor;
 
-unsigned long time;
+unsigned long time, time2;
 unsigned long lasttime = 0;
+unsigned long lasttime2 = 0;
 bool LEDState = LOW;
 
 void setup() {
     Serial.begin(BAUD_RATE);   // USB port
     Serial2.begin(115200);
+    Setpoint = 0.0;
       //turn the PID on
-    Setpoint = 0;
-    HuskyPID.SetMode(AUTOMATIC);
-    HuskyPID.SetSampleTime(20); // Do it at 50Hz 
+//    HuskyPID.SetMode(AUTOMATIC);    
+//    HuskyPID.SetSampleTime(20); // Do it at 50Hz 
+    HuskyPID.setTimeStep(20);  // Do it at 50Hz 
     while (!huskylens.begin(Serial2))
     {
         SerialUSB.println(F("Begin failed!"));
@@ -77,46 +89,59 @@ void Huskycontrol() {
       if (!huskylens.request()) SerialUSB.println(F("Fail to request data from HUSKYLENS, recheck the connection!"));
       else if(!huskylens.isLearned()) SerialUSB.println(F("Nothing learned, press learn button on HUSKYLENS to learn one!"));
       else if(!huskylens.available()) SerialUSB.println(F("No block or arrow appears on the screen!"));
-      else {
+      else  {
         if (huskylens.available())
         {
             HUSKYLENSResult result = huskylens.read();
             if (result.command == COMMAND_RETURN_ARROW){
+              time2 = millis();
               x_1 = result.xOrigin;
               y_1 = result.yOrigin;
               x_2 = result.xTarget;
               y_2 = result.yTarget;
-              slope = (y_2-y_1)/(x_2-x_1);
-              Input = slope;
-              HuskyPID.Compute();
-              steer = Output + 1500;
-//              Serial.print("Setpoint: ");
-//              Serial.print(Setpoint);
-              Serial.print("Input: ");
-              Serial.print(Input);
-//              Serial.print("Steer: ");
-//              Serial.println(steer);
-              
-              motor=1500;
-              if (RC_throttle) {
-//                motor = pulseIn(RC2_pin, HIGH);
-                }
-              }
+              if ((x_2-x_1) == 0) slope = 0; else slope = 1/((y_2-y_1)/(x_2-x_1));
+                x_offset = (150 - x_1)/10;  // if the car is on one side or the other of the line, turn that offset into the equivalent of a slope          
+                blended_slope = x_offset + 10*((slope + oldslope1 + oldslope2)/3);  // X offset plus moving average of past three slope reads
+                Input = blended_slope;  // take a moving average of the past three reading
+                oldslope2 = oldslope1;  // push the older readings down the stack
+                oldslope1 = slope; 
+                HuskyPID.run(); //call every loop, updates automatically at certain time interval
+                Serial.print("FPS: ");
+                Serial.print(1000/(time2-lasttime2));
+                Serial.print(", X offset: ");  // Arrow orgin goes from 32 to 280; 150 is the center point
+                Serial.print(x_offset);
+                Serial.print(", Slope: ");
+                Serial.print(slope);
+                Serial.print(", Blended Input: ");
+                Serial.print(Input);
+                Serial.print(", Output: ");
+                Serial.println(Output);
+                steer = Output*GAIN + 1500;
+  //              Serial.print("Setpoint: ");
+  //              Serial.print(Setpoint);
+  //              Serial.print("Steer: ");
+  //              Serial.println(steer);
+                
+                motor=1500;
+                if (RC_throttle) {
+  //                motor = pulseIn(RC2_pin, HIGH);
+                  }
             else{
               SerialUSB.println("Object unknown!");
               }
-            steer = constrain(steer,1300,1700);
+            steer = constrain(steer,1200,1700);
             motor = constrain(motor,1000,2000);
-            Serial.print(" Steer: ");
-            Serial.println(steer);
+//            Serial.print(" Steer: ");
+//            Serial.println(steer);
 //            Serial.print(" Motor: ");
 //            Serial.println(motor);
             myservoa.write(steer); // send values to output
             myservob.write(motor);
+            lasttime2 = time2;
         }
       }
-}  
-
+  }  
+}
 void loop() {
   time = millis();
   if (time > lasttime + 1000) {   // flash the LED every second to show "resting" mode
@@ -127,5 +152,5 @@ void loop() {
 //  RC3_value = pulseIn(RC3_pin, HIGH);
 //  if (RC3_value > 1500) {RCcontrol();}   // Use the CH5 switch to decide whether to pass through RC commands or take OpenMV commands
 //    else {Huskycontrol();}
-  Huskycontrol();
+    Huskycontrol();
 }

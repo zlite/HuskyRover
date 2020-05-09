@@ -25,7 +25,7 @@ Servo myservoa, myservob; // create servo objects to control servos
 
 double Setpoint, Input, Output;
 
-#define KP 0.4
+#define KP 0.5
 #define KI 0.0
 #define KD 1.0
 #define GAIN 50 
@@ -118,7 +118,7 @@ void Huskycontrol() {
             else{
               SerialUSB.println("Object unknown!");
               }
-            steer = constrain(steer,1200,1700);
+            steer = constrain(steer,1100,1900);
             motor = constrain(motor,1000,2000);
             myservoa.write(steer); // send values to output
             myservob.write(motor);

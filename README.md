@@ -1,4 +1,6 @@
-This is an Arduino sketch that uses a HuskyLens camera to drive a rover, following a line of tape. 
+This is an Arduino sketch that uses a HuskyLens camera to drive a rover, following a line of tape.
+
+See it in action here: https://youtu.be/hXYdbQ042MY
 
 Details here: https://diyrobocars.com/?p=4139
 

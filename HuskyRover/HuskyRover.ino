@@ -33,6 +33,8 @@ double Setpoint, Input, Output;
 //input/output variables passed by reference, so they are updated automatically
 AutoPID HuskyPID(&Input, &Setpoint, &Output, OUTPUT_MIN, OUTPUT_MAX, KP, KI, KD);
 
+boolean Use_RC = true;
+const int cruise_speed = 1600;
 const int BAUD_RATE = 19200;
 double slope, oldslope1, oldslope2, blended_slope, x_offset;
 int RC;
@@ -94,39 +96,35 @@ void Huskycontrol() {
               x_2 = result.xTarget;
               y_2 = result.yTarget;
               if ((x_2-x_1) == 0) slope = 0; else slope = 1/((y_2-y_1)/(x_2-x_1));
-                x_offset = (150 - x_1)/15;  // if the car is on one side or the other of the line, turn that offset into the equivalent of a slope          
-                blended_slope = x_offset + 10*((slope + oldslope1 + oldslope2)/3);  // X offset plus moving average of past three slope reads
-                Input = blended_slope;  // take a moving average of the past three reading
-                oldslope2 = oldslope1;  // push the older readings down the stack
-                oldslope1 = slope; 
-                HuskyPID.run(); //call every loop, updates automatically at certain time interval
-                Serial.print("FPS: ");
-                Serial.print(1000/(time2-lasttime2));
-                Serial.print(", X offset: ");  // Arrow orgin goes from 32 to 280; 150 is the center point
-                Serial.print(x_offset);
-                Serial.print(", Slope: ");
-                Serial.print(slope);
-                Serial.print(", Blended Input: ");
-                Serial.print(Input);
-                Serial.print(", Output: ");
-                Serial.println(Output);
-                steer = Output*GAIN + 1500;
-                motor=1500;
-                if (RC_throttle) {
-                    motor = pulseIn(RC2_pin, HIGH);
-                  }
-            else{
-              SerialUSB.println("Object unknown!");
-              }
-            steer = constrain(steer,1100,1900);
-            motor = constrain(motor,1000,2000);
-            myservoa.write(steer); // send values to output
-            myservob.write(motor);
-            lasttime2 = time2;
+              x_offset = (150 - x_1)/15;  // if the car is on one side or the other of the line, turn that offset into the equivalent of a slope          
+              blended_slope = x_offset + 10*((slope + oldslope1 + oldslope2)/3);  // X offset plus moving average of past three slope reads
+              Input = blended_slope;  // take a moving average of the past three reading
+              oldslope2 = oldslope1;  // push the older readings down the stack
+              oldslope1 = slope; 
+              HuskyPID.run(); //call every loop, updates automatically at certain time interval
+              Serial.print("FPS: ");
+              Serial.print(1000/(time2-lasttime2));
+              Serial.print(", X offset: ");  // Arrow orgin goes from 32 to 280; 150 is the center point
+              Serial.print(x_offset);
+              Serial.print(", Slope: ");
+              Serial.print(slope);
+              Serial.print(", Blended Input: ");
+              Serial.print(Input);
+              Serial.print(", Output: ");
+              Serial.println(Output);
+              steer = Output*GAIN + 1500;
+              if (Use_RC && RC_throttle) motor = pulseIn(RC2_pin, HIGH); else motor = cruise_speed;
+              steer = constrain(steer,1100,1900);
+              motor = constrain(motor,1000,2000);
+              myservoa.write(steer); // send values to output
+              myservob.write(motor);
+              lasttime2 = time2;
+            }
+            else SerialUSB.println("Object unknown!");
         }
       }
   }  
-}
+
 void loop() {
   time = millis();
   if (time > lasttime + 1000) {   // flash the LED every second to show "resting" mode
@@ -134,7 +132,10 @@ void loop() {
       LEDState = !LEDState; // reverse the LED state
       digitalWrite(LED_BUILTIN, LEDState);   // turn on or off the LED
        }
-  RC3_value = pulseIn(RC3_pin, HIGH);
-  if (RC3_value > 1500) {RCcontrol();}   // Use the CH5 switch to decide whether to pass through RC commands or take OpenMV commands
+  if (Use_RC) {
+    RC3_value = pulseIn(RC3_pin, HIGH);
+    if (RC3_value > 1500) {RCcontrol();}   // Use the CH5 switch to decide whether to pass through RC commands or take OpenMV commands
+    else {Huskycontrol();}
+  }
   else {Huskycontrol();}
 }

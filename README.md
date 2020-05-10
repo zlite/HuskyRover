@@ -7,6 +7,7 @@ Details here: https://diyrobocars.com/?p=4139
 It requires the following:
 
 Hardware:
+
 --HuskyLens: https://www.dfrobot.com/product-1922.html
 
 --A Teensy LC: https://www.pjrc.com/store/teensylc.html

@@ -19,6 +19,7 @@ Hardware:
 --A 3D-printed camera mount: https://www.shapeways.com/product/4KUSU43S3/openmv-basic-mount
 
 Software (add as Arduino libraries in the Arduino IDE)
+
 --The HuskyLens Arduino library: https://codeload.github.com/HuskyLens/HUSKYLENSArduino/zip/master
 
 --The AutoPID Arduino library: https://r-downing.github.io/AutoPID/
